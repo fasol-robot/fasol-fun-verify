@@ -254,7 +254,7 @@
             <p style="font-size: 13px; color: #888; line-height: 1.6;">
                 This page runs entirely in your browser — no server calls.
                 Inspect the source to see the exact verification code.<br><br>
-                On-chain program: <a href="https://solscan.io/account/J8kbdA7pL1SzddsoUZpADxt1ckG6zRx4C8GcnX4C2XvN" target="_blank">J8kbd...2XvN</a><br>
+                On-chain program: <a id="programLink" href="https://solscan.io/account/J8kbdA7pL1SzddsoUZpADxt1ckG6zRx4C8GcnX4C2XvN" target="_blank">J8kbd...2XvN</a><br>
                 Verification source: <a href="https://github.com/fasol-robot/fasol-fun-verify" target="_blank">github.com/fasol-robot/fasol-fun-verify</a>
             </p>
         </div>
@@ -386,6 +386,24 @@
                 alert('Error: ' + e.message);
             }
         }
+
+
+        // ─── On-chain program link from the query (?program=<address>) ──────────
+        // fasol.fun runs the same program on several deployments (dev/prod);
+        // the game links here with its own address so the "On-chain program"
+        // link below points at the program the round was actually played on.
+        // No address in the query → the default (production) link stays.
+        (function () {
+            try {
+                var p = new URLSearchParams(window.location.search).get('program');
+                if (!p || !/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(p)) return;
+                var a = document.getElementById('programLink');
+                if (!a) return;
+                a.href = 'https://solscan.io/account/' + p;
+                a.textContent = p.slice(0, 5) + '...' + p.slice(-4);
+            } catch (e) { /* leave the default link */ }
+        })();
+
 
         // Enter key triggers verify
         document.addEventListener('keydown', (e) => {
