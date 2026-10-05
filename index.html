@@ -204,8 +204,12 @@
             <label for="seed">Server Seed (hex)</label>
             <input type="text" id="seed" placeholder="e.g. 1d2ab377dff96023cc7572c0005aa2dba3acc26d..." />
 
-            <label for="gameSeq">Game # (round number)</label>
+            <label for="gameSeq">Game # (round number) — needed for the multiplier, not for the hash</label>
             <input type="number" id="gameSeq" placeholder="e.g. 17" />
+            <p style="font-size: 11px; color: #888; margin-top: -6px; margin-bottom: 12px; line-height: 1.4;">
+                The commit hash is SHA-256 of the seed alone, so it does not change with the game number.
+                The game number goes into the crash multiplier: leave it empty to check only the commit.
+            </p>
 
             <label for="commitHash">Commit Hash to verify (optional)</label>
             <input type="text" id="commitHash" placeholder="e.g. e9b3d881fcea04de8a9ee76552ba70c7cfe891d5..." />
@@ -214,11 +218,11 @@
 
             <div class="result" id="result">
                 <div class="result-row">
-                    <span class="result-label">Crash Multiplier</span>
+                    <span class="result-label">Crash Multiplier <span style="color:#888; font-weight: normal;">(seed + Game #)</span></span>
                     <span class="result-value mult" id="resultMult"></span>
                 </div>
                 <div class="result-row">
-                    <span class="result-label">Computed Hash</span>
+                    <span class="result-label">Commit Hash <span style="color:#888; font-weight: normal;">(SHA256(seed), same for any Game #)</span></span>
                     <span class="result-value" id="resultHash"></span>
                 </div>
                 <div id="hashCheck"></div>
@@ -335,8 +339,8 @@
             const seqInput = document.getElementById('gameSeq').value.trim();
             const userHash = document.getElementById('commitHash').value.trim().toLowerCase();
 
-            if (!seedInput || !seqInput) {
-                alert('Please enter both Server Seed and Game #');
+            if (!seedInput) {
+                alert('Please enter the Server Seed');
                 return;
             }
 
@@ -346,22 +350,32 @@
                 return;
             }
 
-            const gameSeq = parseInt(seqInput, 10);
-            if (isNaN(gameSeq) || gameSeq < 0) {
-                alert('Game # must be a non-negative number');
-                return;
+            // Game # is optional: without it only the commit hash is checked —
+            // the hash is SHA-256 of the seed and does not depend on the round.
+            // The multiplier does, so it needs the number.
+            let gameSeq = null;
+            if (seqInput) {
+                gameSeq = parseInt(seqInput, 10);
+                if (isNaN(gameSeq) || gameSeq < 0) {
+                    alert('Game # must be a non-negative number');
+                    return;
+                }
             }
 
             try {
                 const [multBps, computedHash] = await Promise.all([
-                    computeCrashMult(seedInput.toLowerCase(), gameSeq),
+                    gameSeq === null ? Promise.resolve(null) : computeCrashMult(seedInput.toLowerCase(), gameSeq),
                     computeCommitHash(seedInput.toLowerCase()),
                 ]);
 
-                const mult = (multBps / 10_000).toFixed(2);
-
-                document.getElementById('resultMult').textContent = mult + 'x';
-                document.getElementById('resultMult').className = 'result-value mult';
+                const multEl = document.getElementById('resultMult');
+                if (multBps === null) {
+                    multEl.textContent = 'enter Game # to compute';
+                    multEl.className = 'result-value';
+                } else {
+                    multEl.textContent = (multBps / 10_000).toFixed(2) + 'x';
+                    multEl.className = 'result-value mult';
+                }
 
                 document.getElementById('resultHash').textContent = computedHash;
 
